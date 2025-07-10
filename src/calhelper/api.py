@@ -1,8 +1,43 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Literal, Optional
 
 import os
 import requests
+from dataclasses import dataclass
 from dotenv import load_dotenv
+
+
+@dataclass
+class Attendee:
+    """
+    Represents an attendee for a calendar event.
+    """
+
+    name: str
+    email: str
+    timeZone: str = "America/Los_Angeles"
+    phoneNumber: str = ""
+
+
+class Location1:
+    type: Literal = "address"
+
+
+class Location2:
+    type: Literal = "attendeeAddress"
+    address: str
+
+
+class Location3:
+    type: Literal = "attendeeDefined"
+    location: str
+
+
+class Location4:
+    type: Literal = "integration"
+    integration: str
+
+
+Location = Location1 | Location2 | Location3 | Location4
 
 
 class CalAPI:
@@ -79,24 +114,65 @@ class CalAPI:
             for booking in resp_data["data"]
         ]
 
-    def get_slot(
+    def get_slots(
         self,
-        start_date,
-        end_date,
+        event_type_id: int,
+        start_date: str,
+        end_date: str,
     ):
         """
         Fetch available slots from the calendar between start_date and end_date.
         """
-        ...
+        url = f"{self.API_BASE_URL}/slots"
+        headers = {
+            "Authorization": self.api_key,
+            "cal-api-version": "2024-09-04",
+        }
+        params = {
+            "start": start_date,
+            "end": end_date,
+            "eventTypeId": event_type_id,
+        }
+        response = requests.request("GET", url, headers=headers, params=params)
+        return response.json()["data"]
 
     def create_booking(
         self,
-        booking_details,
+        event_type_id: int,
+        start_time: str,
+        attendees: Attendee,
+        location: Location,
+        guest_emails: List[str] = [],
     ):
         """
         Create a new booking in the calendar.
         """
-        ...
+        url = f"{self.API_BASE_URL}/bookings"
+        headers = {
+            "Authorization": self.api_key,
+            "cal-api-version": "2024-08-13",
+            "Content-Type": "application/json",
+        }
+
+        request = {
+            "start": start_time,
+            "eventTypeId": event_type_id,
+            "attendee": {
+                "name": attendees.name,
+                "email": attendees.email,
+                "timeZone": attendees.timeZone,
+                "phoneNumber": attendees.phoneNumber,
+            },
+            "guests": guest_emails,
+            "location": location,
+        }
+        response = requests.request("POST", url, headers=headers, json=request)
+        resp_data = response.json()
+
+        if resp_data["status"] == "success":
+            return resp_data["data"]
+        else:
+            return resp_data["error"]
 
     def update_booking(
         self,

@@ -1,3 +1,5 @@
+from typing import List, Dict, Any
+
 import os
 import time
 from typing import TypedDict, Annotated, Dict
@@ -11,11 +13,10 @@ from langchain_core.messages import BaseMessage, ToolMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
-from calhelper.api import CalAPI
+from calhelper.api import CalAPI, Attendee, Location
 
-
-REJECTED = "Tool call rejected by user."
 
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -29,6 +30,7 @@ class CalHelper:
         self.cal_api = CalAPI()
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0.0)
         self.tools = self._initialize_tools()
+        self.checkpointer = MemorySaver()
         self.graph = self._initialize_graph()
 
     def _initialize_tools(self):
@@ -68,23 +70,31 @@ class CalHelper:
 
         @tool
         def create_booking(
-            event_type_id: str,
+            event_type_id: int,
             start_time: str,
-            end_time: str,
-            title: str,
-            description: str | None = None,
-            attendees: list[str] | None = None,
+            attendees: Attendee,
+            location: Location,
+            guest_emails: List[str] = [],
         ) -> dict:
             """
             Create a new booking in the calendar.
+            Before calling this function, clarify the event type id, start time, open slots,
+            attendees, guest emails, and location with the user.
+
+            args:
+            - event_type_id: The ID of the event type to book.
+            - start_time: The start time of the booking in ISO-8601 format.
+            - attendees: A dictionary containing the attendee's details.
+            - location: the location of the booking, which can be a physical address or link.
+                if the event type is specified, it should be a valid location from that event type.
+            - guest_emails: A list of email addresses of guests to invite to the booking.
             """
             return self.cal_api.create_booking(
                 event_type_id=event_type_id,
                 start_time=start_time,
-                end_time=end_time,
-                title=title,
-                description=description,
+                location=location,
                 attendees=attendees,
+                guest_emails=guest_emails,
             )
 
         return [
@@ -123,7 +133,9 @@ class CalHelper:
         return True
 
     def _call_model(self, state: AgentState):
-        messages = state["messages"]
+        messages = state['messages']
+        print(f"calling LLM with messages: {messages}")
+
         llm = self.llm.bind_tools(self.tools)
 
         response = llm.invoke(messages)
@@ -134,7 +146,7 @@ class CalHelper:
             return {"messages": [response], "next_step": "end"}
 
     def _call_tool(self, state: AgentState):
-        tool_messages = []
+        messages = []
         all_approved = True
         for tool_call in state["messages"][-1].tool_calls:
             tool_name = tool_call["name"]
@@ -144,7 +156,7 @@ class CalHelper:
                     (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
                     None,
                 )
-                tool_messages.append(
+                messages.append(
                     ToolMessage(
                         content=str(tool_output),
                         tool_call_id=tool_call["id"],
@@ -153,18 +165,18 @@ class CalHelper:
                 )
             else:
                 all_approved = False
-                tool_messages.append(
+                messages.append(
                     ToolMessage(
-                        content=REJECTED,
+                        content="User rejected this tool call.",
                         tool_call_id=tool_call["id"],
                         name=tool_name,
                     )
                 )
 
         if all_approved:
-            return {"messages": tool_messages, "next_step": "llm_call"}
+            return {"messages": messages, "next_step": "llm_call"}
         else:
-            return {"messages": tool_messages, "next_step": "human_intervene"}
+            return {"messages": messages, "next_step": "human_intervene"}
 
     def _human_intervene(self, state: AgentState):
         """
@@ -174,14 +186,20 @@ class CalHelper:
         print("Human intervention required. Current state:")
         user_input = input("Please provide your feedback to continue: ")
 
-        return {"messages": [user_input]}
+        messages = [
+            HumanMessage(
+                content=f"User feedback: {user_input}",
+                additional_kwargs={"timestamp": time.strftime("%Y-%m-%d %H:%M:%S")},
+            )
+        ]
+        return {"messages": messages}
 
     def _should_intervene(self, state: AgentState):
-        if state['next_step'] == "human_intervene":
+        if state["next_step"] == "human_intervene":
             return "human_intervene"
-        elif state['next_step'] == "call_tool":
+        elif state["next_step"] == "call_tool":
             return "call_tool"
-        elif state['next_step'] == "llm_call":
+        elif state["next_step"] == "llm_call":
             return "llm_call"
         else:
             return "end"
@@ -197,7 +215,7 @@ class CalHelper:
 
         workflow.add_conditional_edges(
             "llm_call",
-            lambda state: state['next_step'],
+            lambda state: state["next_step"],
             {
                 "call_tool": "call_tool",
                 "end": END,
@@ -215,10 +233,11 @@ class CalHelper:
         )
         workflow.add_edge("human_intervene", "llm_call")
 
-        app = workflow.compile()
+        app = workflow.compile(checkpointer=self.checkpointer)
         return app
 
     def run(self):
+        thread_id = "1"  # Using a fixed thread_id for demonstration
         while True:
             try:
                 user_input = input("You: ")
@@ -226,7 +245,7 @@ class CalHelper:
                     print("Exiting CalHelper.")
                     break
 
-                # Add the user's message to the state
+                # Invoke the graph
                 initial_state = {
                     "messages": [
                         (
@@ -234,6 +253,24 @@ class CalHelper:
                             (
                                 "You are a helpful calendar assistant."
                                 "Current local timezone is {time.tzname(time.localtime().tm_isdst)}"
+                                "Time format is ISO-8601, example: 2025-07-10T09:00:00-0700."
+                            ),
+                        ),
+                        (
+                            "user",
+                            f"{time.strftime('%Y-%m-%d %H:%M:%S')}: {user_input}",
+                        ),
+                    ]
+                }
+                # Add the user's message to the state
+                initial_state = {
+                    "messages": [
+                        (
+                            "system",
+                            (
+                                "You are a helpful calendar assistant."
+                                f"Current local timezone is {time.tzname[time.localtime().tm_isdst]}"
+                                "Time format is ISO-8601, example: 2025-07-10T09:00:00-0700."
                             ),
                         ),
                         (
@@ -243,8 +280,10 @@ class CalHelper:
                     ]
                 }
 
-                # Invoke the graph
-                for s in self.graph.stream(initial_state):
+                for s in self.graph.stream(
+                    initial_state,
+                    config={"configurable": {"thread_id": thread_id}},
+                ):
                     if "__end__" not in s:
                         print(s)
                     if "llm_call" in s:
