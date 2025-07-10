@@ -1,13 +1,14 @@
-from typing import List, Dict, Any, Literal, Optional
+from typing import List, Dict, Any, Literal, Optional, TypedDict
 
 import os
 import requests
-from dataclasses import dataclass
+import logging
+
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class Attendee:
+class Attendee(BaseModel):
     """
     Represents an attendee for a calendar event.
     """
@@ -18,26 +19,32 @@ class Attendee:
     phoneNumber: str = ""
 
 
-class Location1:
-    type: Literal = "address"
-
-
-class Location2:
-    type: Literal = "attendeeAddress"
+class LocationAddress(BaseModel):
+    type: Literal["address"] = "address"
     address: str
 
 
-class Location3:
-    type: Literal = "attendeeDefined"
+class LocationAttendeeAddress(BaseModel):
+    type: Literal["attendeeAddress"] = "attendeeAddress"
+    address: str
+
+
+class LocationAttendeeDefined(BaseModel):
+    type: Literal["attendeeDefined"] = "attendeeDefined"
     location: str
 
 
-class Location4:
-    type: Literal = "integration"
+class LocationIntegration(BaseModel):
+    type: Literal["integration"] = "integration"
     integration: str
 
 
-Location = Location1 | Location2 | Location3 | Location4
+Location = (
+    LocationAddress
+    | LocationAttendeeAddress
+    | LocationAttendeeDefined
+    | LocationIntegration
+)
 
 
 class CalAPI:
@@ -67,6 +74,7 @@ class CalAPI:
         """
         Fetch event types supported by the user's calendar profile.
         """
+        logging.info(f"Calling get event types with {user}")
         if not user:
             user = self.get_my_profile()
 
@@ -82,7 +90,7 @@ class CalAPI:
 
         # filter key to reduce the size of the response
         keys = ["id", "lengthInMinutes", "title", "slug", "description", "locations"]
-        print(f"Response data: {resp_data}")
+        logging.info(f"Response data: {resp_data}")
         return [d[key] for d in resp_data["data"] for key in keys]
 
     def get_bookings(
@@ -93,6 +101,8 @@ class CalAPI:
         """
         Fetch meeting bookings from the calendar between start_date and end_date.
         """
+        logging.info(f"Calling get bookings with {start_date=}, {end_date=}")
+
         url = f"{self.API_BASE_URL}/bookings"
         headers = {
             "Authorization": self.api_key,
@@ -107,8 +117,18 @@ class CalAPI:
 
         response = requests.request("GET", url, headers=headers, params=params)
         resp_data = response.json()
+        logging.info(f"Calling get bookings, response: {resp_data}")
 
-        keys = ["id", "title", "description", "status", "start", "end", "duration"]
+        keys = [
+            "id",
+            "uid",
+            "title",
+            "description",
+            "status",
+            "start",
+            "end",
+            "duration",
+        ]
         return [
             {key: booking[key] for key in keys if key in booking}
             for booking in resp_data["data"]
@@ -123,6 +143,8 @@ class CalAPI:
         """
         Fetch available slots from the calendar between start_date and end_date.
         """
+        logging.info(f"Calling get slots: {event_type_id=}, {start_date=}, {end_date=}")
+
         url = f"{self.API_BASE_URL}/slots"
         headers = {
             "Authorization": self.api_key,
@@ -133,8 +155,12 @@ class CalAPI:
             "end": end_date,
             "eventTypeId": event_type_id,
         }
+
         response = requests.request("GET", url, headers=headers, params=params)
-        return response.json()["data"]
+        resp_data = response.json()
+        logging.info(f"Calling get slots, response: {resp_data}")
+
+        return resp_data["data"]
 
     def create_booking(
         self,
@@ -147,6 +173,10 @@ class CalAPI:
         """
         Create a new booking in the calendar.
         """
+        logging.info(
+            f"Calling create booking with {event_type_id=}, {start_time=}, {attendees=}, {location=}, {guest_emails=}"
+        )
+
         url = f"{self.API_BASE_URL}/bookings"
         headers = {
             "Authorization": self.api_key,
@@ -164,15 +194,44 @@ class CalAPI:
                 "phoneNumber": attendees.phoneNumber,
             },
             "guests": guest_emails,
-            "location": location,
+            "location": location.model_dump(),
         }
         response = requests.request("POST", url, headers=headers, json=request)
         resp_data = response.json()
+
+        logging.info(f"Calling create booking with response: {resp_data=}")
 
         if resp_data["status"] == "success":
             return resp_data["data"]
         else:
             return resp_data["error"]
+
+    def cancel_booking(
+        self,
+        uid: str,
+        reason: str,
+    ):
+        """
+        Create a new booking in the calendar.
+        """
+        logging.info(f"Calling cancel booking with {uid=}, {reason=}")
+
+        url = f"{self.API_BASE_URL}/bookings/{uid}/cancel"
+        headers = {
+            "Authorization": self.api_key,
+            "cal-api-version": "2024-08-13",
+            "Content-Type": "application/json",
+        }
+
+        request = {
+            "cancellationReason": reason,
+        }
+
+        response = requests.request("POST", url, headers=headers, json=request)
+        resp_data = response.json()
+        logging.info(f"Calling cancel booking with response: {resp_data=}")
+
+        return resp_data["data"]
 
     def update_booking(
         self,

@@ -1,14 +1,15 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TypedDict, Annotated
 
 import os
 import time
-from typing import TypedDict, Annotated, Dict
+import logging
 
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import BaseMessage, ToolMessage
+from pydantic import BaseModel, Field
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -16,6 +17,17 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 from calhelper.api import CalAPI, Attendee, Location
+
+# Setup logging to log file
+log_file = "calhelper.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class AgentState(TypedDict):
@@ -68,34 +80,34 @@ class CalHelper:
                 event_type_id=event_type_id, start_date=start_date, end_date=end_date
             )
 
+        class CreateBookingInput(BaseModel):
+            event_type_id: int = Field(description="The ID of the event type to book.")
+            start_time: str = Field(description="The start time of the booking in ISO-8601 format.")
+            attendees: Attendee = Field(description="A dictionary containing the attendee's details.")
+            location: Location = Field(description="The location of the booking, which can be a physical address or link. If the event type is specified, it should be a valid location from that event type.")
+            guest_emails: List[str] = Field(default_factory=list, description="A list of email addresses of guests to invite to the booking.")
+
         @tool
-        def create_booking(
-            event_type_id: int,
-            start_time: str,
-            attendees: Attendee,
-            location: Location,
-            guest_emails: List[str] = [],
-        ) -> dict:
+        def create_booking(input: CreateBookingInput) -> dict:
             """
             Create a new booking in the calendar.
             Before calling this function, clarify the event type id, start time, open slots,
             attendees, guest emails, and location with the user.
-
-            args:
-            - event_type_id: The ID of the event type to book.
-            - start_time: The start time of the booking in ISO-8601 format.
-            - attendees: A dictionary containing the attendee's details.
-            - location: the location of the booking, which can be a physical address or link.
-                if the event type is specified, it should be a valid location from that event type.
-            - guest_emails: A list of email addresses of guests to invite to the booking.
             """
             return self.cal_api.create_booking(
-                event_type_id=event_type_id,
-                start_time=start_time,
-                location=location,
-                attendees=attendees,
-                guest_emails=guest_emails,
+                event_type_id=input.event_type_id,
+                start_time=input.start_time,
+                location=input.location,
+                attendees=input.attendees,
+                guest_emails=input.guest_emails,
             )
+
+        @tool
+        def cancel_booking(uid: str, reason: str) -> dict:
+            """
+            Cancel a booking based on uid
+            """
+            return self.cal_api.cancel_booking(uid, reason)
 
         return [
             get_my_profile,
@@ -103,6 +115,7 @@ class CalHelper:
             get_bookings,
             get_slots,
             create_booking,
+            cancel_booking,
         ]
 
     def _custom_approve(self, tool_dict: Dict) -> bool:
@@ -115,7 +128,7 @@ class CalHelper:
         tool_name = tool_dict.get("name")
         tool_args = tool_dict.get("args")
 
-        if tool_name in ["create_booking", "get_bookings"]:
+        if tool_name in ["create_booking", "cancel_booking"]:
             print("\n--Human Approval Required--")
             print("\nYour helper wants to call the following function:")
             print(f"  Tool Name: {tool_name}")
@@ -134,11 +147,12 @@ class CalHelper:
 
     def _call_model(self, state: AgentState):
         messages = state['messages']
-        print(f"calling LLM with messages: {messages}")
+        logger.info(f"Calling LLM with messages: {messages}")
 
         llm = self.llm.bind_tools(self.tools)
 
         response = llm.invoke(messages)
+        logger.info(f"LLM Response: {response}")
 
         if response.tool_calls:
             return {"messages": [response], "next_step": "call_tool"}
@@ -151,11 +165,13 @@ class CalHelper:
         for tool_call in state["messages"][-1].tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
+            logger.info(f"Attempting to call tool: {tool_name} with args: {tool_args}")
             if self._custom_approve({"name": tool_name, "args": tool_args}):
                 tool_output = next(
                     (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
                     None,
                 )
+                logger.info(f"Tool {tool_name} executed. Output: {tool_output}")
                 messages.append(
                     ToolMessage(
                         content=str(tool_output),
@@ -165,6 +181,7 @@ class CalHelper:
                 )
             else:
                 all_approved = False
+                logger.warning(f"Tool {tool_name} call rejected by user.")
                 messages.append(
                     ToolMessage(
                         content="User rejected this tool call.",
@@ -246,22 +263,6 @@ class CalHelper:
                     break
 
                 # Invoke the graph
-                initial_state = {
-                    "messages": [
-                        (
-                            "system",
-                            (
-                                "You are a helpful calendar assistant."
-                                "Current local timezone is {time.tzname(time.localtime().tm_isdst)}"
-                                "Time format is ISO-8601, example: 2025-07-10T09:00:00-0700."
-                            ),
-                        ),
-                        (
-                            "user",
-                            f"{time.strftime('%Y-%m-%d %H:%M:%S')}: {user_input}",
-                        ),
-                    ]
-                }
                 # Add the user's message to the state
                 initial_state = {
                     "messages": [
@@ -284,8 +285,8 @@ class CalHelper:
                     initial_state,
                     config={"configurable": {"thread_id": thread_id}},
                 ):
-                    if "__end__" not in s:
-                        print(s)
+                    if "__end__" not in s: ...
+                        # print(s)
                     if "llm_call" in s:
                         print("LLM Response:", s["llm_call"]["messages"][-1].content)
 
