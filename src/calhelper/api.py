@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 class CalAPI:
     API_BASE_URL = "https://api.cal.com/v2"
-    API_VERSION = "2024-08-13"
 
     def __init__(self):
         load_dotenv()
@@ -24,28 +23,32 @@ class CalAPI:
         url = f"{self.API_BASE_URL}/me"
         headers = {
             "Authorization": self.api_key,
-            "cal-api-version": self.API_VERSION,
+            "cal-api-version": "2024-08-13",
         }
         response = requests.request("GET", url, headers=headers)
-        return response.json()
+        return response.json()["data"]
 
     def get_event_types(self, user: Dict) -> List[Dict[str, Any]]:
         """
         Fetch event types supported by the user's calendar profile.
         """
+        if not user:
+            user = self.get_my_profile()
+
         url = f"{self.API_BASE_URL}/event-types"
         headers = {
             "Authorization": self.api_key,
-            "cal-api-version": self.API_VERSION,
+            "cal-api-version": "2024-06-14",
         }
-        response = requests.request("GET", url, headers=headers)
+        query = {"username": user.get("username")}
+
+        response = requests.request("GET", url, headers=headers, params=query)
         resp_data = response.json()
 
         # filter key to reduce the size of the response
         keys = ["id", "lengthInMinutes", "title", "slug", "description", "locations"]
-        return [
-            d[key] for d in resp_data["data"] for key in keys
-        ]
+        print(f"Response data: {resp_data}")
+        return [d[key] for d in resp_data["data"] for key in keys]
 
     def get_bookings(
         self,
@@ -53,12 +56,12 @@ class CalAPI:
         end_date: str | None,
     ) -> List[Dict[str, Any]]:
         """
-        Fetch bookings from the calendar between start_date and end_date.
+        Fetch meeting bookings from the calendar between start_date and end_date.
         """
         url = f"{self.API_BASE_URL}/bookings"
         headers = {
             "Authorization": self.api_key,
-            "cal-api-version": self.API_VERSION,
+            "cal-api-version": "2024-08-13",
         }
 
         params = {"take": "100"}
