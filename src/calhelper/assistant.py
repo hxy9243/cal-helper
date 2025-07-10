@@ -15,6 +15,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from calhelper.api import CalAPI
 
 
+REJECTED = "Tool call rejected by user."
+
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     tool_outcome: Annotated[list[ToolMessage], add_messages]
@@ -103,12 +105,11 @@ class CalHelper:
         tool_name = tool_dict.get("name")
         tool_args = tool_dict.get("args")
 
-        if tool_name == "create_booking":
+        if tool_name in ["create_booking", "get_bookings"]:
             print("\n--Human Approval Required--")
             print("\nYour helper wants to call the following function:")
             print(f"  Tool Name: {tool_name}")
             print(f"  Arguments: {tool_args}")
-            print("\nDo you approve this action? (yes/no)")
             confirmation = (
                 input("Do you approve this action? (yes/no): ").strip().lower()
             )
@@ -127,10 +128,14 @@ class CalHelper:
 
         response = llm.invoke(messages)
 
-        return {"messages": [response]}
+        if response.tool_calls:
+            return {"messages": [response], "next_step": "call_tool"}
+        else:
+            return {"messages": [response], "next_step": "end"}
 
     def _call_tool(self, state: AgentState):
         tool_messages = []
+        all_approved = True
         for tool_call in state["messages"][-1].tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
@@ -147,45 +152,68 @@ class CalHelper:
                     )
                 )
             else:
+                all_approved = False
                 tool_messages.append(
                     ToolMessage(
-                        content="Tool call rejected by user.",
+                        content=REJECTED,
                         tool_call_id=tool_call["id"],
                         name=tool_name,
                     )
                 )
-        return {"messages": tool_messages}
 
-        return {
-            "messages": [BaseMessage(content=user_input, type="human")],
-            "next_step": "continue",
-        }
+        if all_approved:
+            return {"messages": tool_messages, "next_step": "llm_call"}
+        else:
+            return {"messages": tool_messages, "next_step": "human_intervene"}
 
-    def _should_continue(self, state: AgentState):
-        messages = state["messages"]
-        last_message = messages[-1]
-        if last_message.tool_calls:
-            return "continue"
-        return "end"
+    def _human_intervene(self, state: AgentState):
+        """
+        This function is called when the agent needs human intervention.
+        It can be used to log the state or notify the user.
+        """
+        print("Human intervention required. Current state:")
+        user_input = input("Please provide your feedback to continue: ")
+
+        return {"messages": [user_input]}
+
+    def _should_intervene(self, state: AgentState):
+        if state['next_step'] == "human_intervene":
+            return "human_intervene"
+        elif state['next_step'] == "call_tool":
+            return "call_tool"
+        elif state['next_step'] == "llm_call":
+            return "llm_call"
+        else:
+            return "end"
 
     def _initialize_graph(self):
         workflow = StateGraph(AgentState)
 
         workflow.add_node("llm_call", self._call_model)
         workflow.add_node("call_tool", self._call_tool)
-        # workflow.add_node("human_intervene", self._human_intervene)
+        workflow.add_node("human_intervene", self._human_intervene)
 
         workflow.add_edge(START, "llm_call")
+
         workflow.add_conditional_edges(
             "llm_call",
-            self._should_continue,
+            lambda state: state['next_step'],
             {
-                "continue": "call_tool",
+                "call_tool": "call_tool",
                 "end": END,
             },
         )
-        workflow.add_edge("call_tool", "llm_call")
-        # workflow.add_edge("human_intervene", "llm_call")
+
+        workflow.add_conditional_edges(
+            "call_tool",
+            self._should_intervene,
+            {
+                "llm_call": "llm_call",
+                "human_intervene": "human_intervene",
+                "end": END,
+            },
+        )
+        workflow.add_edge("human_intervene", "llm_call")
 
         app = workflow.compile()
         return app
