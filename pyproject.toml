@@ -11,7 +11,12 @@ dependencies = [
     "openai>=1.93.3",
     "pydantic>=2.11.7",
     "langgraph>=0.1.20",
+    "streamlit>=1.36.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.scripts]
+# web = "calhelper.streamlit_app:main"
+calhelper = "calhelper.cli:main"
