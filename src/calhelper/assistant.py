@@ -126,33 +126,6 @@ class CalHelper:
             reschedule_booking,
         ]
 
-    def _custom_approve(self, tool_dict: Dict) -> bool:
-        """
-        Custom approval function for the HumanApprovalCallbackHandler.
-        This function can be modified to implement custom logic for approving
-        the tool calls made by the agent.
-        """
-        # Here you can implement your custom logic to approve or reject the tool call
-        tool_name = tool_dict.get("name")
-        tool_args = tool_dict.get("args")
-
-        if tool_name in ["create_booking", "cancel_booking", "reschedule_booking"]:
-            print("\n--Human Approval Required--")
-            print("\nYour helper wants to call the following function:")
-            print(f"  Tool Name: {tool_name}")
-            print(f"  Arguments: {tool_args}")
-            confirmation = (
-                input("Do you approve this action? (yes/no): ").strip().lower()
-            )
-            if confirmation in ("yes", "y"):
-                print("Action approved. Executing tool...")
-                return True
-            else:
-                print("Action rejected by user.")
-                return False
-
-        return True
-
     def _call_model(self, state: AgentState):
         messages = state['messages']
         logger.info(f"Calling LLM with messages: {messages}")
@@ -169,72 +142,31 @@ class CalHelper:
 
     def _call_tool(self, state: AgentState):
         messages = []
-        all_approved = True
         for tool_call in state["messages"][-1].tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
             logger.info(f"Attempting to call tool: {tool_name} with args: {tool_args}")
-            if self._custom_approve({"name": tool_name, "args": tool_args}):
-                tool_output = next(
-                    (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
-                    None,
-                )
-                logger.info(f"Tool {tool_name} executed. Output: {tool_output}")
-                messages.append(
-                    ToolMessage(
-                        content=str(tool_output),
-                        tool_call_id=tool_call["id"],
-                        name=tool_name,
-                    )
-                )
-            else:
-                all_approved = False
-                logger.warning(f"Tool {tool_name} call rejected by user.")
-                messages.append(
-                    ToolMessage(
-                        content="User rejected this tool call.",
-                        tool_call_id=tool_call["id"],
-                        name=tool_name,
-                    )
-                )
-
-        if all_approved:
-            return {"messages": messages, "next_step": "llm_call"}
-        else:
-            return {"messages": messages, "next_step": "human_intervene"}
-
-    def _human_intervene(self, state: AgentState):
-        """
-        This function is called when the agent needs human intervention.
-        It can be used to log the state or notify the user.
-        """
-        print("Human intervention required. Current state:")
-        user_input = input("Please provide your feedback to continue: ")
-
-        messages = [
-            HumanMessage(
-                content=f"User feedback: {user_input}",
-                additional_kwargs={"timestamp": time.strftime("%Y-%m-%d %H:%M:%S")},
+            tool_output = next(
+                (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
+                None,
             )
-        ]
-        return {"messages": messages}
+            logger.info(f"Tool {tool_name} executed. Output: {tool_output}")
+            messages.append(
+                ToolMessage(
+                    content=str(tool_output),
+                    tool_call_id=tool_call["id"],
+                    name=tool_name,
+                )
+            )
 
-    def _should_intervene(self, state: AgentState):
-        if state["next_step"] == "human_intervene":
-            return "human_intervene"
-        elif state["next_step"] == "call_tool":
-            return "call_tool"
-        elif state["next_step"] == "llm_call":
-            return "llm_call"
-        else:
-            return "end"
+        return {"messages": messages, "next_step": "llm_call"}
 
     def _initialize_graph(self):
         workflow = StateGraph(AgentState)
 
         workflow.add_node("llm_call", self._call_model)
         workflow.add_node("call_tool", self._call_tool)
-        workflow.add_node("human_intervene", self._human_intervene)
+        # workflow.add_node("human_intervene", self._human_intervene)
 
         workflow.add_edge(START, "llm_call")
 
@@ -246,17 +178,7 @@ class CalHelper:
                 "end": END,
             },
         )
-
-        workflow.add_conditional_edges(
-            "call_tool",
-            self._should_intervene,
-            {
-                "llm_call": "llm_call",
-                "human_intervene": "human_intervene",
-                "end": END,
-            },
-        )
-        workflow.add_edge("human_intervene", "llm_call")
+        workflow.add_edge("call_tool", "llm_call")
 
         app = workflow.compile(checkpointer=self.checkpointer)
         return app
