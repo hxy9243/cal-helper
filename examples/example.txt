@@ -1,0 +1,125 @@
+Hello from cal-helper!
+You: list my bookings tomorrow
+LLM Response:
+LLM Response: Here are your bookings for tomorrow, July 11, 2025:
+
+1. **15 Min Meeting between Xiaoyu Hu and John**
+   - **Time:** 09:00 AM - 09:15 AM
+   - **Status:** Accepted
+
+2. **15 Min Meeting between Xiaoyu Hu and Rogan**
+   - **Time:** 11:00 AM - 11:15 AM
+   - **Status:** Accepted
+
+3. **15 Min Meeting between Xiaoyu Hu and Tylor**
+   - **Time:** 02:00 PM - 02:15 PM
+   - **Status:** Accepted
+
+If you need any further assistance with these bookings, feel free to ask!
+You: what about my availabile slots tomorrow?
+LLM Response:
+LLM Response:
+LLM Response: Here are your available slots for tomorrow, July 11, 2025, for different meeting types:
+
+### 15 Min Meeting
+- 09:15 AM
+- 09:30 AM
+- 11:15 AM
+- 11:30 AM
+- 11:45 AM
+- 12:00 PM
+- 12:15 PM
+- 12:30 PM
+- 12:45 PM
+- 01:00 PM
+- 01:15 PM
+- 01:30 PM
+- 01:45 PM
+- 02:15 PM
+- 02:30 PM
+- 02:45 PM
+- 03:00 PM
+- 03:15 PM
+- 03:30 PM
+- 03:45 PM
+- 04:00 PM
+- 04:15 PM
+- 04:30 PM
+- 04:45 PM
+
+### 30 Min Meeting
+- 11:30 AM
+- 12:00 PM
+- 12:30 PM
+- 01:00 PM
+- 01:30 PM
+- 02:30 PM
+- 03:00 PM
+- 03:30 PM
+- 04:00 PM
+- 04:30 PM
+
+### Secret Meeting
+- 09:15 AM
+- 09:30 AM
+- 11:15 AM
+- 11:30 AM
+- 11:45 AM
+- 12:00 PM
+- 12:15 PM
+- 12:30 PM
+- 12:45 PM
+- 01:00 PM
+- 01:15 PM
+- 01:30 PM
+- 01:45 PM
+- 02:15 PM
+- 02:30 PM
+- 02:45 PM
+- 03:00 PM
+- 03:15 PM
+- 03:30 PM
+- 03:45 PM
+- 04:00 PM
+- 04:15 PM
+- 04:30 PM
+- 04:45 PM
+
+If you would like to book any of these slots, please let me know!
+You: book 30min tomorrow afternoon 1pm
+LLM Response: To confirm, would you like to book a 30-minute meeting tomorrow, July 11, 2025, at 1:00 PM? Please provide the attendee's name, email, and any additional details if needed.
+You: John, hxy9243@gmail.com
+LLM Response:
+LLM Response: The 30-minute meeting with John has been successfully booked for tomorrow, July 11, 2025, at 1:00 PM. Here are the details:
+
+- **Meeting Title:** 30 Min Meeting between Xiaoyu Hu and John
+- **Time:** 1:00 PM - 1:30 PM
+- **Location:** [Video Call Link](https://app.cal.com/video/pCEJZxCrBmhBPEFDcZ1wnW)
+
+If you need any further assistance, feel free to ask!
+You: list my booking tomorrow
+LLM Response:
+LLM Response: Here are your bookings for tomorrow, July 11, 2025:
+
+1. **15 Min Meeting between Xiaoyu Hu and John**
+   - **Time:** 09:00 AM - 09:15 AM
+   - **Status:** Accepted
+
+2. **15 Min Meeting between Xiaoyu Hu and Rogan**
+   - **Time:** 11:00 AM - 11:15 AM
+   - **Status:** Accepted
+
+3. **30 Min Meeting between Xiaoyu Hu and John**
+   - **Time:** 01:00 PM - 01:30 PM
+   - **Status:** Accepted
+
+4. **15 Min Meeting between Xiaoyu Hu and Tylor**
+   - **Time:** 02:00 PM - 02:15 PM
+   - **Status:** Accepted
+
+If you need any further assistance with these bookings, feel free to ask!
+You: cancel tomorrow's 2pm meeting with Tylor
+LLM Response: Please confirm if you would like to cancel the 15-minute meeting with Tylor scheduled for tomorrow, July 11, 2025, at 2:00 PM.
+You: yes
+LLM Response:
+LLM Response: The 15-minute meeting with Tylor scheduled for tomorrow, July 11, 2025, at 2:00 PM has been successfully cancelled. If you need any further assistance, feel free to ask!
