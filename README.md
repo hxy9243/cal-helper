@@ -16,6 +16,8 @@ It has a command-line interface (CLI) and a Streamlit web application for intera
 *   **Flexible Interface:** Interact with the assistant via a command-line interface or a user-friendly Streamlit web application.
 *   **Cal.com Integration:** Seamlessly connects with your Cal.com account to manage your calendar events.
 
+**Disclaimer**: the app is created to demostrate Agentic AI programming. It's not thoroughly tested and may contain bugs.
+
 ## Installation
 
 To set up CalHelper, follow these steps:
@@ -32,10 +34,24 @@ To set up CalHelper, follow these steps:
     . venv/bin/activate
     ```
 
+    or
+
+    ```bash
+    uv venv
+    . venv/bin/activate
+    ```
+
 3.  **Install dependencies:**
     ```bash
     pip install -e .
     ```
+
+    or
+
+    ```bash
+    uv pip install -e .
+    ```
+
     This will install all necessary Python packages, including `langchain`, `openai`, `streamlit`, and `pydantic`.
 
 ## Configuration
@@ -79,10 +95,10 @@ calhelper
 
 Once started, you can type your calendar-related queries, e.g.:
 *   "What are my upcoming meetings?"
-*   "Schedule a 30-minute meeting with John Doe tomorrow at 10 AM about project status."
-*   "Cancel my meeting with Jane Smith on Friday."
+*   "Schedule a 30-minute meeting tomorrow with Xiaoyu, who@example.com."
+*   "Cancel my meeting with Xiaoyu on Friday."
 
-See [examples](examples/example.txt).
+See [examples here](examples/example.txt).
 
 ### Streamlit Web Application
 
