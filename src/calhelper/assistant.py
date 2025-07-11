@@ -52,7 +52,7 @@ class CalHelper:
             return self.cal_api.get_my_profile()
 
         @tool
-        def get_event_types() -> list[dict]:
+        def get_event_types() -> List[Dict]:
             """
             Fetch event types supported by the user's calendar profile.
             """
@@ -61,7 +61,7 @@ class CalHelper:
         @tool
         def get_bookings(
             start_date: str | None = None, end_date: str | None = None
-        ) -> list[dict]:
+        ) -> List[Dict]:
             """
             Fetch bookings from the calendar between start_date and end_date.
             """
@@ -72,7 +72,7 @@ class CalHelper:
             event_type_id: str,
             start_date: str | None = None,
             end_date: str | None = None,
-        ) -> list[dict]:
+        ) -> List[Dict]:
             """
             Fetch available slots for a specific event type between start_date and end_date.
             """
@@ -83,12 +83,12 @@ class CalHelper:
         class CreateBookingInput(BaseModel):
             event_type_id: int = Field(description="The ID of the event type to book.")
             start_time: str = Field(description="The start time of the booking in ISO-8601 format.")
-            attendees: Attendee = Field(description="A dictionary containing the attendee's details.")
+            attendees: Attendee = Field(description="A Dictionary containing the attendee's details.")
             location: Location = Field(description="The location of the booking, which can be a physical address or link. If the event type is specified, it should be a valid location from that event type.")
             guest_emails: List[str] = Field(default_factory=list, description="A list of email addresses of guests to invite to the booking.")
 
         @tool
-        def create_booking(input: CreateBookingInput) -> dict:
+        def create_booking(input: CreateBookingInput) -> Dict:
             """
             Create a new booking in the calendar.
             Before calling this function, clarify the event type id, start time, open slots,
@@ -103,11 +103,18 @@ class CalHelper:
             )
 
         @tool
-        def cancel_booking(uid: str, reason: str) -> dict:
+        def cancel_booking(booking_uid: str, reason: str) -> Dict:
             """
             Cancel a booking based on uid
             """
-            return self.cal_api.cancel_booking(uid, reason)
+            return self.cal_api.cancel_booking(booking_uid, reason)
+
+        @tool
+        def reschedule_booking(booking_uid: str, start_time: str, reason: str) -> Dict:
+            """
+            Reschedule a booking to new start time based on uid
+            """
+            return self.cal_api.reschedule_booking(booking_uid, start_time, reason)
 
         return [
             get_my_profile,
@@ -116,6 +123,7 @@ class CalHelper:
             get_slots,
             create_booking,
             cancel_booking,
+            reschedule_booking,
         ]
 
     def _custom_approve(self, tool_dict: Dict) -> bool:
@@ -128,7 +136,7 @@ class CalHelper:
         tool_name = tool_dict.get("name")
         tool_args = tool_dict.get("args")
 
-        if tool_name in ["create_booking", "cancel_booking"]:
+        if tool_name in ["create_booking", "cancel_booking", "reschedule_booking"]:
             print("\n--Human Approval Required--")
             print("\nYour helper wants to call the following function:")
             print(f"  Tool Name: {tool_name}")
@@ -272,6 +280,7 @@ class CalHelper:
                                 "You are a helpful calendar assistant."
                                 f"Current local timezone is {time.tzname[time.localtime().tm_isdst]}"
                                 "Time format is ISO-8601, example: 2025-07-10T09:00:00-0700."
+                                "Respond everything in the current timezone."
                             ),
                         ),
                         (

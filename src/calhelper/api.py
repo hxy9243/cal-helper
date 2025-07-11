@@ -139,7 +139,7 @@ class CalAPI:
         event_type_id: int,
         start_date: str,
         end_date: str,
-    ):
+    ) -> Dict[str, Any]:
         """
         Fetch available slots from the calendar between start_date and end_date.
         """
@@ -169,7 +169,7 @@ class CalAPI:
         attendees: Attendee,
         location: Location,
         guest_emails: List[str] = [],
-    ):
+    ) -> Dict[str, Any]:
         """
         Create a new booking in the calendar.
         """
@@ -210,7 +210,7 @@ class CalAPI:
         self,
         uid: str,
         reason: str,
-    ):
+    ) -> Dict[str, Any]:
         """
         Create a new booking in the calendar.
         """
@@ -233,8 +233,30 @@ class CalAPI:
 
         return resp_data["data"]
 
-    def update_booking(
+    def reschedule_booking(
         self,
-        booking_id,
-        updated_details,
-    ): ...
+        booking_uid: str,
+        start_time: str,
+        reason: str,
+    ) -> Dict[str, Any]:
+        """
+        Reschedule a new booking in the calendar.
+        """
+        logging.info(f"Calling reschedule booking with {booking_uid=}, {start_time=} {reason=}")
+
+        url = f"{self.API_BASE_URL}/bookings/{booking_uid}/reschedule"
+        headers = {
+            "Authorization": self.api_key,
+            "cal-api-version": "2024-08-13",
+            "Content-Type": "application/json",
+        }
+        request = {
+            "start": start_time,
+            "reschedulingReason": reason,
+        }
+
+        response = requests.request("POST", url, headers=headers, json=request)
+        resp_data = response.json()
+        logging.info(f"Calling reschedule booking with response: {resp_data=}")
+
+        return resp_data["data"]
