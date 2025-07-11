@@ -25,7 +25,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(log_file),
-    ]
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -82,10 +82,19 @@ class CalHelper:
 
         class CreateBookingInput(BaseModel):
             event_type_id: int = Field(description="The ID of the event type to book.")
-            start_time: str = Field(description="The start time of the booking in ISO-8601 format.")
-            attendees: Attendee = Field(description="A Dictionary containing the attendee's details.")
-            location: Location = Field(description="The location of the booking, which can be a physical address or link. If the event type is specified, it should be a valid location from that event type.")
-            guest_emails: List[str] = Field(default_factory=list, description="A list of email addresses of guests to invite to the booking.")
+            start_time: str = Field(
+                description="The start time of the booking in ISO-8601 format."
+            )
+            attendees: Attendee = Field(
+                description="A Dictionary containing the attendee's details."
+            )
+            location: Location = Field(
+                description="The location of the booking, which can be a physical address or link. If the event type is specified, it should be a valid location from that event type."
+            )
+            guest_emails: List[str] = Field(
+                default_factory=list,
+                description="A list of email addresses of guests to invite to the booking.",
+            )
 
         @tool
         def create_booking(input: CreateBookingInput) -> Dict:
@@ -127,7 +136,7 @@ class CalHelper:
         ]
 
     def _call_model(self, state: AgentState):
-        messages = state['messages']
+        messages = state["messages"]
         logger.info(f"Calling LLM with messages: {messages}")
 
         llm = self.llm.bind_tools(self.tools)
@@ -146,10 +155,14 @@ class CalHelper:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
             logger.info(f"Attempting to call tool: {tool_name} with args: {tool_args}")
-            tool_output = next(
-                (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
-                None,
-            )
+            try:
+                tool_output = next(
+                    (t.invoke(tool_args) for t in self.tools if t.name == tool_name),
+                    None,
+                )
+            except Exception as e:
+                logger.error(f"Error calling tool {tool_name}: {e}")
+                tool_output = f"Error: {str(e)}"
             logger.info(f"Tool {tool_name} executed. Output: {tool_output}")
             messages.append(
                 ToolMessage(
@@ -201,8 +214,9 @@ class CalHelper:
                             (
                                 "You are a helpful calendar assistant."
                                 f"Current local timezone is {time.tzname[time.localtime().tm_isdst]}"
-                                "Time format is ISO-8601, example: 2025-07-10T09:00:00-0700."
+                                "All time string format is ISO-8601, example: 2025-07-10T09:00:00-0700."
                                 "Respond everything in the current timezone."
+                                "Before creating, cancelling, or rescheduling an event, prompt the user for confirmation with tool call arguments."
                             ),
                         ),
                         (
@@ -216,9 +230,10 @@ class CalHelper:
                     initial_state,
                     config={"configurable": {"thread_id": thread_id}},
                 ):
-                    if "__end__" not in s: ...
-                        # print(s)
+                    if "__end__" not in s:
+                        logging.info(f"State: {s}")
                     if "llm_call" in s:
+                        logging.info(f"response: {s["llm_call"]["messages"][-1].content}")
                         print("LLM Response:", s["llm_call"]["messages"][-1].content)
 
             except (KeyboardInterrupt, EOFError):

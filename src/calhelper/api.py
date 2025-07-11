@@ -150,6 +150,8 @@ class CalAPI:
             "Authorization": self.api_key,
             "cal-api-version": "2024-09-04",
         }
+        if not start_date or not end_date:
+            raise ValueError("Both start_date and end_date must be provided.")
         params = {
             "start": start_date,
             "end": end_date,
@@ -231,7 +233,10 @@ class CalAPI:
         resp_data = response.json()
         logging.info(f"Calling cancel booking with response: {resp_data=}")
 
-        return resp_data["data"]
+        if resp_data["status"] == "success":
+            return resp_data["data"]
+        else:
+            return resp_data["error"]
 
     def reschedule_booking(
         self,
@@ -242,7 +247,9 @@ class CalAPI:
         """
         Reschedule a new booking in the calendar.
         """
-        logging.info(f"Calling reschedule booking with {booking_uid=}, {start_time=} {reason=}")
+        logging.info(
+            f"Calling reschedule booking with {booking_uid=}, {start_time=} {reason=}"
+        )
 
         url = f"{self.API_BASE_URL}/bookings/{booking_uid}/reschedule"
         headers = {
@@ -259,4 +266,7 @@ class CalAPI:
         resp_data = response.json()
         logging.info(f"Calling reschedule booking with response: {resp_data=}")
 
-        return resp_data["data"]
+        if resp_data["status"] == "success":
+            return resp_data["data"]
+        else:
+            return resp_data["error"]
