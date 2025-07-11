@@ -22,14 +22,14 @@ To set up CalHelper, follow these steps:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-repo/calhelper.git # Replace with actual repo URL
+    git clone https://github.com/hxy9243/calhelper.git
     cd calhelper
     ```
 
 2.  **Create a virtual environment (recommended):**
     ```bash
     python -m venv venv
-    source venv/bin/activate # On Windows, use `venv\Scripts\activate`
+    . venv/bin/activate
     ```
 
 3.  **Install dependencies:**
@@ -59,6 +59,16 @@ CalHelper requires a `CAL_API_KEY` to interact with the Cal.com API.
 
 CalHelper can be used via its CLI or a Streamlit web application.
 
+Currently it has limited support for the following features:
+
+- List bookings
+- Get available slots
+- Create a new booking
+- Cancel a booking
+- Reschedule a booking
+
+Team and advanced features are not supported, but could be considered in the future.
+
 ### Command-Line Interface (CLI)
 
 You can interact with the CalHelper assistant directly from your terminal.
@@ -72,6 +82,8 @@ Once started, you can type your calendar-related queries, e.g.:
 *   "Schedule a 30-minute meeting with John Doe tomorrow at 10 AM about project status."
 *   "Cancel my meeting with Jane Smith on Friday."
 
+See [examples](examples/example.txt).
+
 ### Streamlit Web Application
 
 To run the interactive web application:
@@ -79,6 +91,8 @@ To run the interactive web application:
 ```bash
 streamlit run src/streamlit_app.py
 ```
+
+Example: ![](examples/Screenshot%20from%202025-07-10%2020-05-26.png)
 
 This command will start the Streamlit server, and a new tab in your web browser will open, displaying the CalHelper chat interface. You can then type your requests into the chat window.
 
@@ -88,5 +102,3 @@ This command will start the Streamlit server, and a new tab in your web browser 
 *   `src/calhelper/assistant.py`: Implements the AI assistant logic using LangChain and LangGraph, integrating the Cal.com API tools.
 *   `src/calhelper/cli.py`: Defines the command-line interface for the assistant.
 *   `src/streamlit_app.py`: Provides the Streamlit web application interface.
-*   `pyproject.toml`: Project metadata and dependencies.
-*   `.env`: Environment variables (e.g., `CAL_API_KEY`).
