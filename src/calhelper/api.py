@@ -48,6 +48,8 @@ Location = (
 
 
 class CalAPI:
+    """CalAPI is client for interacting with the Cal.com API."""
+
     API_BASE_URL = "https://api.cal.com/v2"
 
     def __init__(self):

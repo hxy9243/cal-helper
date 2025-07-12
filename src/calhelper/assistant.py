@@ -37,6 +37,7 @@ class AgentState(TypedDict):
 
 
 class CalHelper:
+    """A calendar assistant that interacts with a calendar API to manage bookings."""
 
     def __init__(self):
         self.cal_api = CalAPI()
@@ -179,10 +180,8 @@ class CalHelper:
 
         workflow.add_node("llm_call", self._call_model)
         workflow.add_node("call_tool", self._call_tool)
-        # workflow.add_node("human_intervene", self._human_intervene)
 
         workflow.add_edge(START, "llm_call")
-
         workflow.add_conditional_edges(
             "llm_call",
             lambda state: state["next_step"],
@@ -198,6 +197,21 @@ class CalHelper:
 
     def run(self):
         thread_id = "1"  # Using a fixed thread_id for demonstration
+        initial_state = {
+            "messages": [
+                (
+                    "system",
+                    (
+                        "You are a helpful calendar assistant."
+                        f"Current local timezone is {time.tzname[time.localtime().tm_isdst]}"
+                        "All time string format is ISO-8601, example: 2025-07-10T09:00:00-0700."
+                        "Respond everything in the current timezone."
+                        "Before creating, cancelling, or rescheduling an event, prompt the user for confirmation with tool call arguments."
+                    ),
+                ),
+            ]
+        }
+
         while True:
             try:
                 user_input = input("You: ")
@@ -205,26 +219,13 @@ class CalHelper:
                     print("Exiting CalHelper.")
                     break
 
-                # Invoke the graph
-                # Add the user's message to the state
-                initial_state = {
-                    "messages": [
-                        (
-                            "system",
-                            (
-                                "You are a helpful calendar assistant."
-                                f"Current local timezone is {time.tzname[time.localtime().tm_isdst]}"
-                                "All time string format is ISO-8601, example: 2025-07-10T09:00:00-0700."
-                                "Respond everything in the current timezone."
-                                "Before creating, cancelling, or rescheduling an event, prompt the user for confirmation with tool call arguments."
-                            ),
-                        ),
-                        (
-                            "user",
-                            f"{time.strftime('%Y-%m-%d %H:%M:%S')}: {user_input}",
-                        ),
-                    ]
-                }
+                # Invoke the graph, add the user's message to the state
+                initial_state["messages"].append(
+                    (
+                        "user",
+                        f"{time.strftime('%Y-%m-%d %H:%M:%S')}: {user_input}",
+                    )
+                )
 
                 for s in self.graph.stream(
                     initial_state,
@@ -232,9 +233,11 @@ class CalHelper:
                 ):
                     if "__end__" not in s:
                         logging.info(f"State: {s}")
+
                     if "llm_call" in s:
-                        logging.info(f"response: {s["llm_call"]["messages"][-1].content}")
-                        print("LLM Response:", s["llm_call"]["messages"][-1].content)
+                        content = s["llm_call"]["messages"][-1].content
+                        if content:
+                            print(f"LLM Response: {content}")
 
             except (KeyboardInterrupt, EOFError):
                 print("Bye bye.")
