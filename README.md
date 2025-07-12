@@ -1,20 +1,20 @@
 # CalHelper: An AI-Powered Calendar Assistant
 
-CalHelper is an AI-powered calendar assistant toy app designed to streamline your scheduling and event management using the` Cal.com API.
+CalHelper is an AI-powered calendar assistant toy app designed to streamline your scheduling and event management using the Cal.com API.
 It has a command-line interface (CLI) and a Streamlit web application for interacting with your Cal.com APIs.
+
+It's built with [LangChain](https://github.com/langchain-ai/langchain) for learning and demo purposes.
 
 ## Features
 
 *   **AI-Powered Interactions:** Leverage large language models (LLMs) to understand natural language requests for calendar management.
 *   **Event Management:**
-    *   Fetch your profile and available event types.
+    *   Fetch your available event types and available slots.
     *   Retrieve existing meeting bookings.
-    *   Find available slots for specific event types.
     *   Create new bookings.
     *   Cancel existing bookings.
     *   Reschedule bookings.
-*   **Flexible Interface:** Interact with the assistant via a command-line interface or a user-friendly Streamlit web application.
-*   **Cal.com Integration:** Seamlessly connects with your Cal.com account to manage your calendar events.
+*   **Cal.com Integration:** Connects with your Cal.com account to manage your calendar events.
 
 **Disclaimer**: the app is created to demostrate Agentic AI programming. It's not thoroughly tested and may contain bugs.
 
@@ -64,12 +64,14 @@ CalHelper requires a `CAL_API_KEY` to interact with the Cal.com API.
     *   Generate a new API key if you don't have one.
 
 2.  **Create a `.env` file:**
+
     In the root directory of the `calhelper` project, create a file named `.env` and add your API key:
     ```
     OPENAI_API_KEY="sk-YOUR_OPENAI_KEY"
     CAL_API_KEY="YOUR_CAL_COM_API_KEY"
     ```
-    Replace `"YOUR_CAL_COM_API_KEY"` with the actual API key you obtained from Cal.com.
+
+    Replace the API keys with your actual API key.
 
 ## Usage
 
@@ -94,6 +96,7 @@ calhelper
 ```
 
 Once started, you can type your calendar-related queries, e.g.:
+
 *   "What are my upcoming meetings?"
 *   "Schedule a 30-minute meeting tomorrow with Xiaoyu, who@example.com."
 *   "Cancel my meeting with Xiaoyu on Friday."
